@@ -35,6 +35,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     if RV_prefit:
         spectrum = spectrum[order_choice,:]
         spectrum_err = spectrum_err[order_choice,:]
+        spectrum_blaze = spectrum_blaze[order_choice,:]
         wavelength_normalized = utils.whitten_wavelength(wavelength)[order_choice,:]
         wavelength = wavelength[order_choice,:]
 
@@ -48,6 +49,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     num_order = spectrum.shape[0]
 
     print(spectrum.shape)
+    print(spectrum_err.shape)
+    print(wavelength.shape)
+
 #------------------------------------------------------------------------------------------
     # the objective function
     def fit_func(dummy_variable, *labels):
