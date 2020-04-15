@@ -32,11 +32,14 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     '''
 
     # normalize wavelength grid
+    wavelength_normalized = utils.whitten_wavelength(wavelength)
+
+    # specify a order for the (pre-) RV fit
     if RV_prefit:
         spectrum = spectrum[order_choice,:]
         spectrum_err = spectrum_err[order_choice,:]
         spectrum_blaze = spectrum_blaze[order_choice,:]
-        wavelength_normalized = utils.whitten_wavelength(wavelength)[order_choice,:]
+        wavelength_normalized = wavelength_normalized[order_choice,:]
         wavelength = wavelength[order_choice,:]
 
     # normalize spectra with the blaze function
