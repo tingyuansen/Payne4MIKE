@@ -13,7 +13,7 @@ from . import utils
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                   wavelength, NN_coeffs, wavelength_payne, RV_prefit=False,\
                   blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
-                  polynomial_order = 3, order_choice=[20]):
+                  polynomial_order = 2, order_choice=[20]):
 
     '''
     Fitting MIKE spectrum
@@ -34,6 +34,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
     # normalize wavelength grid
     wavelength_normalized = utils.whitten_wavelength(wavelength)
+
+    # number of polynomial coefficient
+    coeff_poly = polynomial_order + 1
 
     # specify a order for the (pre-) RV fit
     if RV_prefit:
@@ -77,8 +80,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         spec_predict = np.zeros(num_order*num_pixel)
         for k in range(spectrum.shape[0]):
             scale_poly = 0
-            for m in range(polymial_order):
-                scale_poly += (wavelength_normalized[k,:]**m)*labels[4+polynomial_order*k+m]
+            for m in range(coeff_poly):
+                scale_poly += (wavelength_normalized[k,:]**m)*labels[4+coeff_poly*k+m]
             spec_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_flux_spec(wavelength[k,:])
         return spec_predict
 
@@ -99,12 +102,12 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         # then the continuum (quadratic)
         # then vamcro
         # then RV
-        p0 = np.zeros(4 + polynomial_order*num_order + 1 + 1)
+        p0 = np.zeros(4 + coeff_poly*num_order + 1 + 1)
 
         # initiate the polynomial with a flat scaling of y=1
-        p0[4::polynomial_order] = 0
-        p0[5::polynomial_order] = 0
-        p0[6::polynomial_order] = 1
+        p0[4::coeff_poly] = 1
+        p0[5::coeff_poly] = 0
+        p0[6::coeff_poly] = 0
 
         # initializE vmacro
         p0[-2] = 0.5
