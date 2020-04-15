@@ -31,17 +31,17 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         Best fitted parameter (Teff, logg, Fe/H, Alpha/Fe, polynomial coefficients, vmacro, RV)
     '''
 
-
-
-    # normalize spectra with the blaze function
-    if blaze_normalized and RV_prefit:
-        spectrum = spectrum[order_choice,:]/spectrum_blaze[order_choice,:]
-        spectrum_err = spectrum_err[order_choice,:]/spectrum_blaze[order_choice,:]
-
     # normalize wavelength grid
     if RV_prefit:
+        spectrum = spectrum[order_choice,:]
+        spectrum_err = spectrum_err[order_choice,:]
         wavelength_normalized = utils.whitten_wavelength(wavelength)[order_choice,:]
         wavelength = wavelength[order_choice,:]
+
+    # normalize spectra with the blaze function
+    if blaze_normalized:
+        spectrum = spectrum/spectrum_blaze
+        spectrum_err = spectrum_err/spectrum_blaze
 
     # number of pixel per order, number of order
     num_pixel = spectrum.shape[1]
@@ -79,7 +79,12 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 #------------------------------------------------------------------------------------------
     # loop over all possible
     chi_2 = np.inf
-    print('Finding the best initial radial velocity')
+
+    if RV_prefit:
+        print('Finding the best initial radial velocity')
+
+    if RV_prefit and blaze_normalized:
+        print('First fitting the blaze-normalized spectrum')
 
     for i in range(RV_array.size):
         print(i, "/", RV_array.size)
