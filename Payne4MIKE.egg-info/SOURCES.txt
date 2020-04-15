@@ -1,0 +1,14 @@
+README.md
+setup.py
+Payne4MIKE/__init__.py
+Payne4MIKE/fitting.py
+Payne4MIKE/read_spectrum.py
+Payne4MIKE/spectral_model.py
+Payne4MIKE/utils.py
+Payne4MIKE.egg-info/PKG-INFO
+Payne4MIKE.egg-info/SOURCES.txt
+Payne4MIKE.egg-info/dependency_links.txt
+Payne4MIKE.egg-info/top_level.txt
+Payne4MIKE/other_data/2M06062375-0639010_red_multi.fits
+Payne4MIKE/other_data/Hot_Star_HR9087.fits
+Payne4MIKE/other_data/NN_normalized_spectra_float16.npz
