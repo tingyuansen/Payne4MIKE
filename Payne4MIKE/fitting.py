@@ -93,12 +93,12 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         # then the continuum (quadratic)
         # then vamcro
         # then RV
-        p0 = np.zeros(4 + 3 + 1 + 1)
+        p0 = np.zeros(4 + 3*num_order + 1 + 1)
 
         # initiate the polynomial with a flat scaling of y=1
-        p0[4] = 0
-        p0[5] = 0
-        p0[6] = 1
+        p0[4::3] = 0
+        p0[5::3] = 0
+        p0[6::3] = 1
 
         # initializE vmacro
         p0[-2] = 0.5
