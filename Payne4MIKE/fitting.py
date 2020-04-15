@@ -51,10 +51,6 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     num_pixel = spectrum.shape[1]
     num_order = spectrum.shape[0]
 
-    print(spectrum.shape)
-    print(spectrum_err.shape)
-    print(wavelength.shape)
-
 #------------------------------------------------------------------------------------------
     # the objective function
     def fit_func(dummy_variable, *labels):
@@ -102,7 +98,6 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         # then vamcro
         # then RV
         p0 = np.zeros(4 + 3*num_order + 1 + 1)
-        print(p0.shape)
 
         # initiate the polynomial with a flat scaling of y=1
         p0[4::3] = 0
@@ -135,7 +130,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
         # calculate chi^2
         model_spec = fit_func([], *popt)
-        chi_2_temp = np.mean((spectrum - model_spec)**2/spectrum_err**2)
+        chi_2_temp = np.mean((spectrum.ravel() - model_spec)**2/spectrum_err.ravel()**2)
 
         # check if this gives a better fit
         if chi_2_temp < chi_2:
