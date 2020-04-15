@@ -47,6 +47,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     num_pixel = spectrum.shape[1]
     num_order = spectrum.shape[0]
 
+    print(spectrum.shape)
 #------------------------------------------------------------------------------------------
     # the objective function
     def fit_func(dummy_variable, *labels):
@@ -83,7 +84,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     if RV_prefit:
         print('Finding the best initial radial velocity')
 
-    if RV_prefit and blaze_normalized:
+    if not(RV_prefit) and blaze_normalized:
         print('First fitting the blaze-normalized spectrum')
 
     for i in range(RV_array.size):
@@ -94,6 +95,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         # then vamcro
         # then RV
         p0 = np.zeros(4 + 3*num_order + 1 + 1)
+        print(p0.shape)
 
         # initiate the polynomial with a flat scaling of y=1
         p0[4::3] = 0
