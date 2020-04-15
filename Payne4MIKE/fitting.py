@@ -31,6 +31,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         Best fitted parameter (Teff, logg, Fe/H, Alpha/Fe, polynomial coefficients, vmacro, RV)
     '''
 
+
+
     # normalize spectra with the blaze function
     if blaze_normalized and RV_prefit:
         spectrum = spectrum[order_choice,:]/spectrum_blaze[order_choice,:]
@@ -41,9 +43,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         wavelength_normalized = utils.whitten_wavelength(wavelength)[order_choice,:]
         wavelength = wavelength[order_choice,:]
 
-    print(spectrum.shape)
-    print(spectrum_err.shape)
-    print(wavelength.shape)
+    # number of pixel per order, number of order
+    num_pixel = spectrum.shape[1]
+    num_order = spectrum.shape[0]
 
 #------------------------------------------------------------------------------------------
     # the objective function
@@ -67,11 +69,11 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
 
         # loop over all orders
-        spec_predict = np.zeros(spectrum.shape)
+        spec_predict = np.zeros(num_order*num_pixel)
         for k in range(spectrum.shape[0]):
             scale_poly = wavelength_normalized[k,:]**2*labels[4+3*k] \
                         + wavelength_normalized[k,:]*labels[5+3*k] + labels[6+3*k]
-            spec_predict[k,:] = scale_poly*f_flux_spec(wavelength[k,:])
+            spec_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_flux_spec(wavelength[k,:])
         return spec_predict
 
 #------------------------------------------------------------------------------------------
@@ -113,7 +115,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         # run the optimizer
         tol = 5e-4
         popt, pcov = curve_fit(fit_func, xdata=[],\
-                               ydata = spectrum, sigma = spectrum_err,\
+                               ydata = spectrum.ravel(), sigma = spectrum_err.ravel(),\
                                p0 = p0, bounds=bounds, ftol = tol, xtol = tol, absolute_sigma = True,\
                                method = 'trf')
 
