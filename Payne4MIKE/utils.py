@@ -97,7 +97,7 @@ def match_blaze_to_spectrum(wavelength, spectrum, wavelength_blaze, spectrum_bla
 #------------------------------------------------------------------------------------------
 
 def mask_telluric_region(spectrum_err, spectrum_blaze,
-                         smooth_length = 30, threshold=0.9):
+                         smooth_length=30, threshold=0.9):
 
     '''
     mask out the telluric region by setting infinite errors

@@ -10,10 +10,43 @@ from . import utils
 
 #------------------------------------------------------------------------------------------
 
+def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previous_model_spec,\
+                  polynomial_order=6, previous_polynomial_order=2):
+
+    '''
+    Fit the continuum while fixing other stellar labels
+
+    The end results will be used as initial condition in the global fit (continuum + stellar labels)
+    '''
+
+    # normalize wavelength grid
+    wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
+
+    # number of polynomial coefficients
+    coeff_poly = polynomial_order + 1
+    pre_coeff_poly = previous_polynomial_order + 1
+
+    # initiate results array for the polynomial coefficients
+    fit_poly = np.zeros((wavelength_normalized.shape[0],coeff_poly))
+
+    # loop over all order and fit for the polynomial (weighted by the error)
+    for k in range(wavelength_normalized.shape[0]):
+        pre_poly = 0
+        for m in range(pre_coeff_poly):
+            pre_poly += (wavelength_normalized[k,:]**m)*previous_poly_fit[4+m+pre_coeff_poly*k]
+        substract_factor =  (previous_model_spec[k,:]/pre_poly) ## subtract away the previous fit
+        fit_poly[k,:] = np.polyfit(wavelength_normalized[k,:], spectrum[k,:]/substract_factor,\
+                                   polynomial_order, w=1./(spectrum_err[k,:]/substract_factor))[::-1]
+
+    return fit_poly
+
+
+#------------------------------------------------------------------------------------------
+
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
-                  wavelength, NN_coeffs, wavelength_payne, RV_prefit=False,\
-                  blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
-                  polynomial_order = 2, order_choice=[20]):
+                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None,\
+                 RV_prefit=False, blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
+                 polynomial_order=2, order_choice=[20]):
 
     '''
     Fitting MIKE spectrum
@@ -33,9 +66,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     '''
 
     # normalize wavelength grid
-    wavelength_normalized = utils.whitten_wavelength(wavelength)
+    wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
 
-    # number of polynomial coefficient
+    # number of polynomial coefficients
     coeff_poly = polynomial_order + 1
 
     # specify a order for the (pre-) RV fit
@@ -96,24 +129,18 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         print('First fitting the blaze-normalized spectrum')
 
     for i in range(RV_array.size):
-        print(i, "/", RV_array.size)
+        print(i+1, "/", RV_array.size)
 
-        # first four are stellar parametes (Teff, logg, Fe/H, alpha/Fe)
-        # then the continuum (quadratic)
-        # then vamcro
-        # then RV
-        p0 = np.zeros(4 + coeff_poly*num_order + 1 + 1)
-
-        # initiate the polynomial with a flat scaling of y=1
-        p0[4::coeff_poly] = 1
-        p0[5::coeff_poly] = 0
-        p0[6::coeff_poly] = 0
-
-        # initializE vmacro
-        p0[-2] = 0.5
-
-        # initiate RV
-        p0[-1] = RV_array[i]
+        # initialize the parameters (Teff, logg, Fe/H, alpha/Fe, polynomial continuum, vbroad, RV)
+        if p0_initial is None:
+            p0 = np.zeros(4 + coeff_poly*num_order + 1 + 1)
+            p0[4::coeff_poly] = 1
+            p0[5::coeff_poly] = 0
+            p0[6::coeff_poly] = 0
+            p0[-2] = 0.5
+            p0[-1] = RV_array[i]
+        else:
+            p0 = p0_initial
 
         # set fitting bound
         bounds = np.zeros((2,p0.size))
@@ -140,6 +167,7 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         # check if this gives a better fit
         if chi_2_temp < chi_2:
             chi_2 = chi_2_temp
+            model_spec_best = model_spec
             popt_best = popt
 
-    return popt_best
+    return popt_best, model_spec_best.reshape(num_order,num_pixel), chi_2
