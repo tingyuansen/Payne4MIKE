@@ -10,6 +10,67 @@ from . import utils
 
 #------------------------------------------------------------------------------------------
 
+def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
+                NN_coeffs, wavelength_payne,\
+                RV_array=np.linspace(-1,1.,6), order_choice=[20])
+                polynomial_order=6):
+
+    '''
+    Fitting MIKE spectrum
+    Fitting stellar labels, polynomial continuum, vbroad, and radial velocity simultaneously
+
+    spectrum and spectrum_err are the spectrum to be fitted and its uncertainties
+    spectrum_blaze is a hot star spectrum used as a reference spectrum
+    wavelength is the wavelength of the pixels
+    they are all 2D array with [number of spectral order, number of pixels]
+
+    NN_coeffs are the neural network emulator coefficients
+    we adopt Kurucz models in this study
+    wavelength_payne is the output wavelength of the emulator
+
+    RV_array is the radial velocity initialization that we will run the fit
+    order_choice is the specific order that we will use to pre-determine the radial velocitiy
+    the radial velocity is then used as the initialization for the global fit
+    MIKE spectrum typically has about ~35 orders in the red
+    
+    polynomial_order is the final order of polynomial that we will assume for the continuum of individual orders
+    A 6th order polynomial does a decent job
+    '''
+
+    # first we fit for a specific order while looping over all RV initalization
+    # the spectrum is pre-normalized with the blaze function
+    # we assume a quadratic polynomial for the residual continuum
+    popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
+                                                          wavelength, NN_coeffs, wavelength_payne,\
+                                                          p0_initial=None, RV_prefit=True, blaze_normalized=True,\
+                                                          RV_array=RV_array, polynomial_order=2)
+
+    # we then fit for all the orders
+    # we adopt the RV from the previous fit as the sole initialization
+    # the spectrum is still pre-normalized by the blaze function
+    RV_array = np.array([popt_best[-1]])
+    popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
+                                                          wavelength, NN_coeffs, wavelength_payne,\
+                                                          p0_initial=None, RV_prefit=False, blaze_normalized=True,\
+                                                          RV_array=RV_array, polynomial_order=2)
+
+    # using this fit, we can subtract the raw spectrum with the best fit model of the normalized spectrum
+    # with which we can then estimate the continuum for the raw specturm
+    poly_initial = fitting.fit_continuum(spectrum, spectrum_err, wavelength, popt_best,\
+                                         model_spec_best, polynomial_order=polynomial_order, previous_polynomial_order=2)
+
+    # using all these as intialization, we are ready to do the final fit
+    RV_array = np.array([popt_best[-1]])
+    p0_initial = np.concatenate([popt_best[:4], poly_initial.ravel(), popt_best[-2:]])
+    popt_best, model_spec_best, chi_square = fitting.fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
+                                                                  wavelength, NN_coeffs, wavelength_payne,\
+                                                                  p0_initial=p0_initial,\
+                                                                  RV_prefit=False, blaze_normalized=False,\
+                                                                  RV_array=RV_array, polynomial_order=polynomial_order)
+    return popt_best, model_spec_best, chi_square
+
+#------------------------------------------------------------------------------------------
+
 def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previous_model_spec,\
                   polynomial_order=6, previous_polynomial_order=2):
 
@@ -18,6 +79,8 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 
     The end results will be used as initial condition in the global fit (continuum + stellar labels)
     '''
+
+    print('Pre Fit: Finding the best continuum initialization')
 
     # normalize wavelength grid
     wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
@@ -123,10 +186,13 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     chi_2 = np.inf
 
     if RV_prefit:
-        print('Finding the best initial radial velocity')
+        print('Pre Fit: Finding the best radial velocity initialization')
 
     if not(RV_prefit) and blaze_normalized:
-        print('First fitting the blaze-normalized spectrum')
+        print('Pre Fit: Fitting the blaze-normalized spectrum')
+
+    if not(RV_prefit) and not(blaze_normalized):
+        print('Final Fit: Fitting the whole spectrum with all parameters simultaneously')
 
     for i in range(RV_array.size):
         print(i+1, "/", RV_array.size)
