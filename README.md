@@ -10,7 +10,7 @@ python setup.py install
 The [tutorial](https://github.com/tingyuansen/Payne4MIKE/blob/master/tutorial.ipynb) shows some simple use cases.
 
 ## Dependencies
-* The Python Anacaonda should already contains all the dependencies needed.
+* The Python Anacaonda should already contain all the dependencies needed.
 
 
 ## Citing this code
