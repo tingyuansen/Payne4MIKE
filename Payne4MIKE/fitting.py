@@ -209,8 +209,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
             p0 = p0_initial
 
         # set fitting bound
+        bounds = np.zeros((2,p0.size))
         if bounds_set is None:
-            bounds = np.zeros((2,p0.size))
             bounds[0,:4] = -0.5
             bounds[1,:4] = 0.5
             bounds[0,4:] = -1000
