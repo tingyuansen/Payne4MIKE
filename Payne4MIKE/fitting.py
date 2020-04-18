@@ -13,7 +13,7 @@ from . import utils
 def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
                 NN_coeffs, wavelength_payne,\
                 RV_array=np.linspace(-1,1.,6), order_choice=[20],\
-                polynomial_order=6):
+                polynomial_order=6, bounds_set=None):
 
     '''
     Fitting MIKE spectrum
@@ -43,7 +43,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
                                                           p0_initial=None, RV_prefit=True, blaze_normalized=True,\
-                                                          RV_array=RV_array, polynomial_order=2)
+                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
 
     # we then fit for all the orders
     # we adopt the RV from the previous fit as the sole initialization
@@ -52,7 +52,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
                                                           p0_initial=None, RV_prefit=False, blaze_normalized=True,\
-                                                          RV_array=RV_array, polynomial_order=2)
+                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
 
     # using this fit, we can subtract the raw spectrum with the best fit model of the normalized spectrum
     # with which we can then estimate the continuum for the raw specturm
@@ -64,7 +64,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     p0_initial = np.concatenate([popt_best[:4], poly_initial.ravel(), popt_best[-2:]])
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
-                                                          p0_initial=p0_initial,\
+                                                          p0_initial=p0_initial, bounds_set=bounds_set,\
                                                           RV_prefit=False, blaze_normalized=False,\
                                                           RV_array=RV_array, polynomial_order=polynomial_order)
     return popt_best, model_spec_best, chi_square
@@ -107,7 +107,7 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 #------------------------------------------------------------------------------------------
 
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
-                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None,\
+                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None, bounds_set=bounds_set,\
                  RV_prefit=False, blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
                  polynomial_order=2, order_choice=[20]):
 
@@ -209,15 +209,18 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
             p0 = p0_initial
 
         # set fitting bound
-        bounds = np.zeros((2,p0.size))
-        bounds[0,:4] = -0.5
-        bounds[1,:4] = 0.5
-        bounds[0,4:] = -1000
-        bounds[1,4:] = 1000
-        bounds[0,-2] = 0.1
-        bounds[1,-2] = 10.
-        bounds[0,-1] = -200
-        bounds[1,-1] = 200
+        if bounds_set is None:
+            bounds = np.zeros((2,p0.size))
+            bounds[0,:4] = -0.5
+            bounds[1,:4] = 0.5
+            bounds[0,4:] = -1000
+            bounds[1,4:] = 1000
+            bounds[0,-2] = 0.1
+            bounds[1,-2] = 10.
+            bounds[0,-1] = -200
+            bounds[1,-1] = 200
+        else:
+            bounds = bounds_set
 
         # run the optimizer
         tol = 5e-4
