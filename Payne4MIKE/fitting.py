@@ -107,7 +107,7 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 #------------------------------------------------------------------------------------------
 
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
-                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None, bounds_set=bounds_set,\
+                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None, bounds_set=None,\
                  RV_prefit=False, blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
                  polynomial_order=2, order_choice=[20]):
 
