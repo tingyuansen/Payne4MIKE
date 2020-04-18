@@ -51,7 +51,7 @@ def read_in_blaze_spectrum():
     read in a default hot star spectrum to determine telluric features and blaze function.
     '''
 
-    path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'other_data/Hot_Star718.fits')
+    path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'other_data/Hot_Star_HR718.fits')
     wavelength_blaze, spectrum_blaze, spectrum_err_blaze = read_carpy_fits(path)
     return wavelength_blaze, spectrum_blaze, spectrum_err_blaze
 
