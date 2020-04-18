@@ -210,14 +210,14 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
         # set fitting bound
         bounds = np.zeros((2,p0.size))
+        bounds[0,4:] = -1000 # polynomial coefficients
+        bounds[1,4:] = 1000
         if bounds_set is None:
-            bounds[0,:4] = -0.5
+            bounds[0,:4] = -0.5 # teff, logg, feh, alphafe
             bounds[1,:4] = 0.5
-            bounds[0,4:] = -1000
-            bounds[1,4:] = 1000
-            bounds[0,-2] = 0.1
+            bounds[0,-2] = 0.1 # vbroad
             bounds[1,-2] = 10.
-            bounds[0,-1] = -2.
+            bounds[0,-1] = -2. # RV [km/s]
             bounds[1,-1] = 2.
         else:
             bounds[:,:4] = bounds_set[:,:4]
