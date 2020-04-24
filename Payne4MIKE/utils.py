@@ -4,9 +4,19 @@ import numpy as np
 import os
 from scipy import interpolate
 from .read_spectrum import read_carpy_fits
+from . import spectral_model
 
 
 #=======================================================================================================================
+
+def vac2air(lamvac):
+    """
+    http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
+    Morton 2000
+    """
+    s2 = (1e4/lamvac)**2
+    n = 1 + 0.0000834254 + 0.02406147 / (130 - s2) + 0.00015998 / (38.9 - s2)
+    return lamvac/n
 
 def read_in_neural_network():
 
@@ -25,6 +35,7 @@ def read_in_neural_network():
     x_min = tmp["x_min"]
     x_max = tmp["x_max"]
     wavelength_payne = tmp["wavelength_payne"]
+    wavelength_payne = vac2air(wavelength_payne)
     NN_coeffs = (w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max)
     tmp.close()
     return NN_coeffs, wavelength_payne
@@ -163,3 +174,4 @@ def whitten_wavelength(wavelength):
         mean_wave = np.mean(wavelength[k,:])
         wavelength_normalized[k,:] = (wavelength[k,:]-mean_wave)/mean_wave
     return wavelength_normalized
+
