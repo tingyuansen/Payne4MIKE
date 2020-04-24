@@ -45,20 +45,22 @@ class Spectrum1D(object):
 #------------------------------------------------------------------------------------------------------------
     # read in spectrum
     @classmethod
-    def read(cls, path, **kwargs):
+    def read(cls, path, fluxband=2, **kwargs):
         """
         Create a Spectrum1D class from a path on disk.
         """
-        dispersion, flux, ivar = cls.read_fits_multispec(path, **kwargs)
+        dispersion, flux, ivar = cls.read_fits_multispec(path, fluxband=fluxband, **kwargs)
         orders = [cls(dispersion=d, flux=f, ivar=i) for d, f, i in zip(dispersion, flux, ivar)]
         return orders
 
     @classmethod
-    def read_fits_multispec(cls, path, **kwargs):
+    def read_fits_multispec(cls, path, fluxband, **kwargs):
         """
         Create multiple Spectrum1D classes from a multi-spec file on disk.
         """
 
+        assert fluxband in [1,2,3,4,5,6,7], fluxband
+        
         WAT_LENGTH=68
         image = fits.open(path)
 
@@ -92,11 +94,18 @@ class Spectrum1D(object):
             dispersion[j,0:len(_dispersion)] = _dispersion
 
         # inverse variance array
-        flux_ext = 1
-        noise_ext = 2
-        flux = image[0].data[flux_ext]
-        ivar = image[0].data[noise_ext]**(-2)
-
+        if fluxband in [1,2,3,4,5,6]:
+            flux_ext = fluxband-1
+            noise_ext = 2
+            flux = image[0].data[flux_ext]
+            ivar = image[0].data[noise_ext]**(-2)
+        else:
+            flux_ext = 6
+            Norder = image[0].data.shape[1]
+            flats = [image[0].data[2,iorder]/image[0].data[6,iorder] for iorder in range(Norder)]
+            ivar = [(flats[iorder]/image[0].data[2,iorder])**2. for iorder in range(Norder)]
+            ivar = np.array(ivar)
+        
         dispersion = np.atleast_2d(dispersion)
         flux = np.atleast_2d(flux)
         ivar = np.atleast_2d(ivar)
