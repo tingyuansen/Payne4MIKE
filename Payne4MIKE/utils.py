@@ -112,6 +112,32 @@ def mask_telluric_region(spectrum_err, spectrum_blaze,
 
 #------------------------------------------------------------------------------------------
 
+def cut_wavelength(wavelength, spectrum, spectrum_err, wavelength_min = 3500, wavelength_max = 10000):
+
+    '''
+    remove orders not in wavelength range
+    '''
+
+    ii_good = np.sum((wavelength > wavelength_min) & (wavelength < wavelength_max), axis=1) == wavelength.shape[1]
+    print("Keeping {}/{} orders between {}-{}".format(ii_good.sum(), len(ii_good), wavelength_min, wavelength_max))
+    return wavelength[ii_good,:], spectrum[ii_good,:], spectrum_err[ii_good,:]
+
+#------------------------------------------------------------------------------------------
+
+def mask_wavelength_regions(wavelength, spectrum_err, mask_list):
+
+    '''
+    mask out a mask_list by setting infinite errors
+    '''
+
+    assert wavelength.shape == spectrum_err.shape
+    for wmin, wmax in mask_list:
+        assert wmin < wmax
+        spectrum_err[(wavelength > wmin) & (wavelength < wmax)] = 999.
+    return spectrum_err
+
+#------------------------------------------------------------------------------------------
+
 def scale_spectrum_by_median(spectrum, spectrum_err):
 
     '''
