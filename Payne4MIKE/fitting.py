@@ -43,7 +43,8 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
                                                           p0_initial=None, RV_prefit=True, blaze_normalized=True,\
-                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
+                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set,\
+                                                          order_choice=order_choice)
 
     # we then fit for all the orders
     # we adopt the RV from the previous fit as the sole initialization
