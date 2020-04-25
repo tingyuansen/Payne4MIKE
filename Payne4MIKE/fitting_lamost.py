@@ -216,8 +216,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
         if bounds_set is None:
             bounds[0,:4] = -0.5 # teff, logg, feh, alphafe
             bounds[1,:4] = 0.5
-            bounds[0,-2] = 0.1 # vbroad
-            bounds[1,-2] = 10.
+            bounds[0,-2] = 30. # vbroad
+            bounds[1,-2] = 70.
             bounds[0,-1] = -2. # RV [100 km/s]
             bounds[1,-1] = 2.
         else:
