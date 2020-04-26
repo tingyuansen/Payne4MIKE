@@ -175,3 +175,21 @@ def whitten_wavelength(wavelength):
         wavelength_normalized[k,:] = (wavelength[k,:]-mean_wave)/mean_wave
     return wavelength_normalized
 
+#---------------------------------------------------------------------
+
+def transform_coefficients(popt, NN_coeffs=None):
+
+    '''
+    Transform coefficients into human-readable
+    '''
+
+    if NN_coeffs is None:
+        NN_coeffs, dummy = read_in_neural_network()
+    w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max = NN_coeffs
+    
+    popt_new = popt.copy()
+    popt_new[:4] = (popt_new[:4] + 0.5)*(x_max-x_min) + x_min
+    popt_new[0] = popt_new[0]*1000.
+    popt_new[-1] = popt_new[-1]*100.
+    return popt_new
+
