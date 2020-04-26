@@ -6,7 +6,7 @@ from astropy.io import fits
 from multiprocessing import Pool
 
 # set number of threads per CPU
-#os.environ['OMP_NUM_THREADS']='{:d}'.format(1)
+os.environ['OMP_NUM_THREADS']='{:d}'.format(1)
 #import mkl
 #mkl.set_num_threads(1)
 
