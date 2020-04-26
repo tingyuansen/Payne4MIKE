@@ -218,8 +218,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
             bounds[1,:4] = 0.5
             bounds[0,-2] = 30. # vbroad
             bounds[1,-2] = 100.
-            bounds[0,-1] = -4. # RV [100 km/s]
-            bounds[1,-1] = 2.
+            bounds[0,-1] = -10. # RV [100 km/s]
+            bounds[1,-1] = 10.
         else:
             bounds[:,:4] = bounds_set[:,:4]
             bounds[:,-2:] = bounds_set[:,-2:]
