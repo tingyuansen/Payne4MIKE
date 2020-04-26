@@ -62,7 +62,7 @@ def fit_spectrum(i):
 
 #-------------------------------------------------------------------------------------
 # fit spectra in batch
-num_CPU = 96
+num_CPU = 64
 pool = Pool(num_CPU)
 start_time = time.time()
 pool.map(fit_spectrum,range(lmjd.size));
