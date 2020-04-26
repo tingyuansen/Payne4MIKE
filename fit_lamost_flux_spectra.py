@@ -22,12 +22,12 @@ w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max =
 
 # restore catalog
 hdulist = fits.open('../Lamost_DR5_x_APOGEE_DR16.fits')
-lmjd = hdulist[1].data['lmjd'][0*10**4:3*10**4]
-planid = hdulist[1].data['planid'][0*10**4:3*10**4]
-spid = hdulist[1].data['spid'][0*10**4:3*10**4]
-fiberid = hdulist[1].data['fiberid'][0*10**4:3*10**4]
+lmjd = hdulist[1].data['lmjd'][6*10**4:]
+planid = hdulist[1].data['planid'][6*10**4:]
+spid = hdulist[1].data['spid'][6*10**4:]
+fiberid = hdulist[1].data['fiberid'][6*10**4:]
 
-lamost_rv = hdulist[1].data['lamost_rv'][0*10**4:3*10**4]
+lamost_rv = hdulist[1].data['lamost_rv'][6*10**4:]
 
 #-------------------------------------------------------------------------------------
 # perfort the fit in batch
