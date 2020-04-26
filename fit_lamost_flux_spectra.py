@@ -7,8 +7,8 @@ from multiprocessing import Pool
 
 # set number of threads per CPU
 os.environ['OMP_NUM_THREADS']='{:d}'.format(1)
-#import mkl
-#mkl.set_num_threads(1)
+import mkl
+mkl.set_num_threads(1)
 
 # import The Payne (https://github.com/tingyuansen/Payne4MIKE)
 from Payne4MIKE import utils
@@ -22,12 +22,12 @@ w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max =
 
 # restore catalog
 hdulist = fits.open('../Lamost_DR5_x_APOGEE_DR16.fits')
-lmjd = hdulist[1].data['lmjd'][3:10**4:6*10**4]
-planid = hdulist[1].data['planid'][3:10**4:6*10**4]
-spid = hdulist[1].data['spid'][3:10**4:6*10**4]
-fiberid = hdulist[1].data['fiberid'][3:10**4:6*10**4]
+lmjd = hdulist[1].data['lmjd'][3*10**4:6*10**4]
+planid = hdulist[1].data['planid'][3*10**4:6*10**4]
+spid = hdulist[1].data['spid'][3*10**4:6*10**4]
+fiberid = hdulist[1].data['fiberid'][3*10**4:6*10**4]
 
-lamost_rv = hdulist[1].data['lamost_rv'][3:10**4:6*10**4]
+lamost_rv = hdulist[1].data['lamost_rv'][3*10**4:6*10**4]
 
 #-------------------------------------------------------------------------------------
 # perfort the fit in batch
