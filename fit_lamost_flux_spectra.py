@@ -45,8 +45,8 @@ def fit_spectrum(i):
 
     # the range of RV that we will search (in the unit of 100 km/s)
     # expand/refine the range of RV if the fit is stuck in a local minimum
-    #RV_array = np.linspace(-4,2.,31)
-    RV_array = np.array([lamost_rv[i]])/100.
+    RV_array = np.linspace(-4,2.,31)
+    #RV_array = np.array([lamost_rv[i]])/100.
 
     # fit spectrum
     popt_best, model_spec_best, chi_square = fitting_lamost.fit_global(spectrum, spectrum_err,\
