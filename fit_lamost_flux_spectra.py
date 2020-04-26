@@ -22,12 +22,12 @@ w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max =
 
 # restore catalog
 hdulist = fits.open('../Lamost_DR5_x_APOGEE_DR16.fits')
-lmjd = hdulist[1].data['lmjd'][:3*10**4]
-planid = hdulist[1].data['planid'][:3*10**4]
-spid = hdulist[1].data['spid'][:3*10**4]
-fiberid = hdulist[1].data['fiberid'][:3*10**4]
+lmjd = hdulist[1].data['lmjd'][3*10**4:6*10**4]
+planid = hdulist[1].data['planid'][3*10**4:6*10**4]
+spid = hdulist[1].data['spid'][3*10**4:6*10**4]
+fiberid = hdulist[1].data['fiberid'][3*10**4:6*10**4]
 
-lamost_rv = hdulist[1].data['lamost_rv'][:3*10**4]
+lamost_rv = hdulist[1].data['lamost_rv'][3*10**4:6*10**4]
 
 #-------------------------------------------------------------------------------------
 # perfort the fit in batch
@@ -48,21 +48,30 @@ def fit_spectrum(i):
     #RV_array = np.linspace(-4,2.,31)
     RV_array = np.array([lamost_rv[i]])/100.
 
-    # fit spectrum
-    popt_best, model_spec_best, chi_square = fitting_lamost.fit_global(spectrum, spectrum_err,\
-                                                            spectrum_blaze, wavelength,\
-                                                            NN_coeffs, wavelength_payne, RV_array=RV_array,\
-                                                            polynomial_order=6, order_choice=[1])
 
-    # save results
-    np.savez("../payne4lamost_results/" + filename,\
-             popt_best=popt_best,\
-             model_spec_best=model_spec_best,\
-             chi_square=chi_square)
+    if os.path.exists("../payne4lamost_results/" + filename + ".npz"):
+        print('Already fitted')
+        return
+    else:
+        try:
+            # fit spectrum
+            popt_best, model_spec_best, chi_square = fitting_lamost.fit_global(spectrum, spectrum_err,\
+                                                                spectrum_blaze, wavelength,\
+                                                                NN_coeffs, wavelength_payne, RV_array=RV_array,\
+                                                                polynomial_order=6, order_choice=[1])
+
+            # save results
+            np.savez("../payne4lamost_results/" + filename,\
+                    popt_best=popt_best,\
+                    model_spec_best=model_spec_best,\
+                    chi_square=chi_square)
+        except:
+            return
+    return
 
 #-------------------------------------------------------------------------------------
 # fit spectra in batch
-num_CPU = 64
+num_CPU = 92
 pool = Pool(num_CPU)
 start_time = time.time()
 pool.map(fit_spectrum,range(lmjd.size));
