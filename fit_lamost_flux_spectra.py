@@ -22,12 +22,12 @@ w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max =
 
 # restore catalog
 hdulist = fits.open('../Lamost_DR5_x_APOGEE_DR16.fits')
-lmjd = hdulist[1].data['lmjd'][6*10**4:]
-planid = hdulist[1].data['planid'][6*10**4:]
-spid = hdulist[1].data['spid'][6*10**4:]
-fiberid = hdulist[1].data['fiberid'][6*10**4:]
+lmjd = hdulist[1].data['lmjd'][3*10**4:6*10**4]
+planid = hdulist[1].data['planid'][3*10**4:6*10**4]
+spid = hdulist[1].data['spid'][3*10**4:6*10**4]
+fiberid = hdulist[1].data['fiberid'][3*10**4:6*10**4]
 
-lamost_rv = hdulist[1].data['lamost_rv'][6*10**4:]
+lamost_rv = hdulist[1].data['lamost_rv'][3*10**4:6*10**4]
 
 #-------------------------------------------------------------------------------------
 # perfort the fit in batch
@@ -42,6 +42,11 @@ def fit_spectrum(i):
     spectrum = temp["spectrum"]
     spectrum_err = temp["spectrum_err"]
     spectrum_blaze = temp["spectrum_blaze"]
+
+    # exclude zero flux
+    spectrum_err[spectrum == 0] = 999.
+    spectrum[spectrum == 0] = 0.01
+    spectrum_blaze[spectrum_blaze == 0] = 0.01
 
     # the range of RV that we will search (in the unit of 100 km/s)
     # expand/refine the range of RV if the fit is stuck in a local minimum
