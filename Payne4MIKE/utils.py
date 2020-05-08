@@ -40,6 +40,14 @@ def read_in_neural_network():
     tmp.close()
     return NN_coeffs, wavelength_payne
 
+def default_nn_mask():
+    NN_coeffs, wavelength_payne = read_in_neural_network()
+    errors_payne = np.zeros_like(wavelength_payne)
+    theory_mask = np.loadtxt("theory_mask.txt")
+    for wmin, wmax in theory_mask:
+        assert wmin < wmax, (wmin, wmax)
+        errors_payne[(wavelength_payne >= wmin) & (wavelength_payne <= wmax)] = 999.
+    return errors_payne
 
 #--------------------------------------------------------------------------------------------------------------------------
 
