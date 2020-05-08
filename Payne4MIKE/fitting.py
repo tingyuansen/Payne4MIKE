@@ -1,7 +1,7 @@
 # code for fitting spectra, using the models in spectral_model.py
 from __future__ import absolute_import, division, print_function # python2 compatibility
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, least_squares
 from scipy import interpolate
 from scipy import signal
 from scipy.stats import norm
@@ -45,7 +45,8 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
                                                           wavelength, NN_coeffs, wavelength_payne,\
                                                           errors_payne=errors_payne,\
                                                           p0_initial=None, RV_prefit=True, blaze_normalized=True,\
-                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
+                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set,
+                                                          order_choice=order_choice)
 
     # we then fit for all the orders
     # we adopt the RV from the previous fit as the sole initialization
@@ -110,6 +111,37 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 
 #------------------------------------------------------------------------------------------
 
+def evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne, wavelength, num_order, num_pixel):
+
+    # make payne models
+    full_spec = spectral_model.get_spectrum_from_neural_net(\
+                                scaled_labels = labels[:4],
+                                NN_coeffs = NN_coeffs)
+    # broadening kernel
+    win = norm.pdf((np.arange(21)-10.)*(wavelength_payne[1]-wavelength_payne[0]),\
+                            scale=labels[-2]/3e5*5000)
+    win = win/np.sum(win)
+
+    # vbroad -> RV
+    full_spec = signal.convolve(full_spec, win, mode='same')
+    full_spec = utils.doppler_shift(wavelength_payne, full_spec, labels[-1]*100.)
+
+    # interpolate into the observed wavelength
+    f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
+    e_errs_spec = interpolate.interp1d(wavelength_payne, errors_payne)
+
+    # loop over all orders
+    spec_predict = np.zeros(num_order*num_pixel)
+    errs_predict = np.zeros(num_order*num_pixel)
+    for k in range(spectrum.shape[0]):
+        scale_poly = 0
+        for m in range(coeff_poly):
+            scale_poly += (wavelength_normalized[k,:]**m)*labels[4+coeff_poly*k+m]
+        spec_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_flux_spec(wavelength[k,:])
+        errs_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_errs_spec(wavelength[k,:])
+
+    return spec_predict, errs_predict
+
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                  wavelength, NN_coeffs, wavelength_payne,\
                  errors_payne=None,\
@@ -163,33 +195,16 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
 #------------------------------------------------------------------------------------------
     # the objective function
-    def fit_func(dummy_variable, *labels):
+    def fit_func(labels):
 
-        # make payne models
-        full_spec = spectral_model.get_spectrum_from_neural_net(\
-                                    scaled_labels = labels[:4],
-                                    NN_coeffs = NN_coeffs)
+        spec_predict, errs_predict = evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne,
+                                                    wavelength, num_order, num_pixel)
 
-        # broadening kernel
-        win = norm.pdf((np.arange(21)-10.)*(wavelength_payne[1]-wavelength_payne[0]),\
-                                scale=labels[-2]/3e5*5000)
-        win = win/np.sum(win)
-
-        # vbroad -> RV
-        full_spec = signal.convolve(full_spec, win, mode='same')
-        full_spec = utils.doppler_shift(wavelength_payne, full_spec, labels[-1]*100.)
-
-        # interpolate into the observed wavelength
-        f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
-
-        # loop over all orders
-        spec_predict = np.zeros(num_order*num_pixel)
-        for k in range(spectrum.shape[0]):
-            scale_poly = 0
-            for m in range(coeff_poly):
-                scale_poly += (wavelength_normalized[k,:]**m)*labels[4+coeff_poly*k+m]
-            spec_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_flux_spec(wavelength[k,:])
-        return spec_predict
+        # Calculate resids: set all potentially bad errors to 999.
+        errs = np.sqrt(errs_predict**2 + spectrum_err.ravel()**2)
+        errs[(~np.isfinite(errs)) | (errs > 999) | (errs < 0)] = 999.
+        resids = (spectrum.ravel() - spec_predict) / errs
+        return resids
 
 #------------------------------------------------------------------------------------------
     # loop over all possible
@@ -238,14 +253,20 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
         # run the optimizer
         tol = 5e-4
-        popt, pcov = curve_fit(fit_func, xdata=[],\
-                               ydata = spectrum.ravel(), sigma = spectrum_err.ravel(),\
-                               p0 = p0, bounds=bounds, ftol = tol, xtol = tol, absolute_sigma = True,\
-                               method = 'trf')
+        #popt, pcov = curve_fit(fit_func, xdata=[],\
+        #                       ydata = spectrum.ravel(), sigma = spectrum_err.ravel(),\
+        #                       p0 = p0, bounds=bounds, ftol = tol, xtol = tol, absolute_sigma = True,\
+        #                       method = 'trf')
+        res = least_squares(fit_func, p0,
+                            bounds=bounds, ftol=tol, xtol=tol, method='trf')
+        if not res.success:
+            raise RuntimeError("Optimal parameters not found: " + res.message)
+        popt = res.x
 
         # calculate chi^2
-        model_spec = fit_func([], *popt)
-        chi_2_temp = np.mean((spectrum.ravel() - model_spec)**2/spectrum_err.ravel()**2)
+        model_spec, model_errs = evaluate_model(popt, NN_coeffs, wavelength_payne, errors_payne,
+                                                wavelength, num_order, num_pixel)
+        chi_2_temp = np.mean((spectrum.ravel() - model_spec)**2/(model_errs + spectrum_err.ravel()**2))
 
         # check if this gives a better fit
         if chi_2_temp < chi_2:
