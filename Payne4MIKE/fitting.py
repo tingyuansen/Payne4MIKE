@@ -14,7 +14,8 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
                 NN_coeffs, wavelength_payne,\
                 errors_payne=None,\
                 RV_array=np.linspace(-1,1.,6), order_choice=[20],\
-                polynomial_order=6, bounds_set=None):
+                polynomial_order=6, bounds_set=None,
+                initial_stellar_parameters=None):
 
     '''
     Fitting MIKE spectrum
@@ -36,6 +37,9 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
 
     polynomial_order is the final order of polynomial that we will assume for the continuum of individual orders
     A 6th order polynomial does a decent job
+
+    initial_stellar_parameters: input initial values for 
+       Teff, logg, Fe/H, a/Fe (in physical units of K, dex, solar, solar)
     '''
 
     # first we fit for a specific order while looping over all RV initalization
@@ -52,10 +56,25 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     # we adopt the RV from the previous fit as the sole initialization
     # the spectrum is still pre-normalized by the blaze function
     RV_array = np.array([popt_best[-1]])
+    # we adopt p0_initial from initial_stellar_parameters
+    if initial_stellar_parameters is not None:
+        normalized_stellar_parameters = utils.normalize_stellar_parameter_labels(
+            initial_stellar_parameters, NN_coeffs)
+        num_order = spectrum.shape[0]
+        coeff_poly = polynomial_order + 1
+        p0_initial = np.zeros(4 + coeff_poly*num_order + 1 + 1)
+        p0_initial[:4] = normalized_stellar_parameters
+        p0_initial[4::coeff_poly] = 1
+        p0_initial[5::coeff_poly] = 0
+        p0_initial[6::coeff_poly] = 0
+        p0_initial[-2] = 0.5
+        p0_initial[-1] = np.array([popt_best[-1]])
+    else:
+        p0_initial = None
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
                                                           errors_payne=errors_payne,\
-                                                          p0_initial=None, RV_prefit=False, blaze_normalized=True,\
+                                                          p0_initial=p0_initial, RV_prefit=False, blaze_normalized=True,\
                                                           RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
 
     # using this fit, we can subtract the raw spectrum with the best fit model of the normalized spectrum
@@ -226,6 +245,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
     if not(RV_prefit) and not(blaze_normalized):
         print('Final Fit: Fitting the whole spectrum with all parameters simultaneously')
+        popt_for_printing = utils.transform_coefficients(p0_initial)
+        print('Teff={:.0f} logg={:.2f} FeH={:.2f} aFe={:.2f} vbroad={:.2f} rv={:.1f}'.format(
+            [popt_for_printing[i] for i in [0,1,2,3,-2,-1]]))
 
     for i in range(RV_array.size):
         print(i+1, "/", RV_array.size)

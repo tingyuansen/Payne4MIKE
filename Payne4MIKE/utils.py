@@ -201,3 +201,21 @@ def transform_coefficients(popt, NN_coeffs=None):
     popt_new[-1] = popt_new[-1]*100.
     return popt_new
 
+def normalize_stellar_parameter_labels(labels, NN_coeffs=None):
+    '''
+    Turn physical stellar parameter values into normalized values.
+    Teff (K), logg (dex), FeH (solar), aFe (solar)
+    '''
+    assert len(labels)==4, "Input Teff, logg, FeH, aFe"
+    # Teff, logg, FeH, aFe = labels
+    labels = np.ravel(labels)
+    labels[0] = labels[0]/1000.
+
+    if NN_coeffs is None:
+        NN_coeffs, dummy = read_in_neural_network()
+    w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max = NN_coeffs
+    new_labels = (labels - x_min) / (x_max - x_min) - 0.5
+    assert np.all(new_labels >= -0.5), new_labels
+    assert np.all(new_labels <=  0.5), new_labels
+    return new_labels
+
