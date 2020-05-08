@@ -111,7 +111,12 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 
 #------------------------------------------------------------------------------------------
 
-def evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne, wavelength, num_order, num_pixel):
+def evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne, coeff_poly, wavelength, num_order, num_pixel,
+                   wavelength_normalized=None):
+
+    # get wavelength_normalized
+    if wavelength_normalized is None:
+        wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
 
     # make payne models
     full_spec = spectral_model.get_spectrum_from_neural_net(\
@@ -128,12 +133,12 @@ def evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne, wavelength
 
     # interpolate into the observed wavelength
     f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
-    e_errs_spec = interpolate.interp1d(wavelength_payne, errors_payne)
+    f_errs_spec = interpolate.interp1d(wavelength_payne, errors_payne)
 
     # loop over all orders
     spec_predict = np.zeros(num_order*num_pixel)
     errs_predict = np.zeros(num_order*num_pixel)
-    for k in range(spectrum.shape[0]):
+    for k in range(num_order):
         scale_poly = 0
         for m in range(coeff_poly):
             scale_poly += (wavelength_normalized[k,:]**m)*labels[4+coeff_poly*k+m]
@@ -198,7 +203,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     def fit_func(labels):
 
         spec_predict, errs_predict = evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne,
-                                                    wavelength, num_order, num_pixel)
+                                                    coeff_poly, wavelength, num_order, num_pixel,
+                                                    wavelength_normalized)
 
         # Calculate resids: set all potentially bad errors to 999.
         errs = np.sqrt(errs_predict**2 + spectrum_err.ravel()**2)
@@ -265,7 +271,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
         # calculate chi^2
         model_spec, model_errs = evaluate_model(popt, NN_coeffs, wavelength_payne, errors_payne,
-                                                wavelength, num_order, num_pixel)
+                                                coeff_poly, wavelength, num_order, num_pixel,
+                                                wavelength_normalized)
         chi_2_temp = np.mean((spectrum.ravel() - model_spec)**2/(model_errs + spectrum_err.ravel()**2))
 
         # check if this gives a better fit
