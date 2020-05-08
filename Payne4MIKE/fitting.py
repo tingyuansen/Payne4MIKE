@@ -246,8 +246,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     if not(RV_prefit) and not(blaze_normalized):
         print('Final Fit: Fitting the whole spectrum with all parameters simultaneously')
         popt_for_printing = utils.transform_coefficients(p0_initial)
-        print('Teff={:.0f} logg={:.2f} FeH={:.2f} aFe={:.2f} vbroad={:.2f} rv={:.1f}'.format(
-            [popt_for_printing[i] for i in [0,1,2,3,-2,-1]]))
+        print('p0 = Teff={:.0f} logg={:.2f} FeH={:.2f} aFe={:.2f} vbroad={:.2f} rv={:.1f}'.format(
+            *[popt_for_printing[i] for i in [0,1,2,3,-2,-1]]))
 
     for i in range(RV_array.size):
         print(i+1, "/", RV_array.size)
