@@ -130,10 +130,11 @@ def evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne, coeff_poly
     # vbroad -> RV
     full_spec = signal.convolve(full_spec, win, mode='same')
     full_spec = utils.doppler_shift(wavelength_payne, full_spec, labels[-1]*100.)
-
+    errors_spec = utils.doppler_shift(wavelength_payne, errors_payne, labels[-1]*100.)
+    
     # interpolate into the observed wavelength
     f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
-    f_errs_spec = interpolate.interp1d(wavelength_payne, errors_payne)
+    f_errs_spec = interpolate.interp1d(wavelength_payne, errors_spec)
 
     # loop over all orders
     spec_predict = np.zeros(num_order*num_pixel)
@@ -207,8 +208,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                     wavelength_normalized)
 
         # Calculate resids: set all potentially bad errors to 999.
+        # We take errs > 300 as bad to account for interpolation issues on the mask
         errs = np.sqrt(errs_predict**2 + spectrum_err.ravel()**2)
-        errs[(~np.isfinite(errs)) | (errs > 999) | (errs < 0)] = 999.
+        errs[(~np.isfinite(errs)) | (errs > 300) | (errs < 0)] = 999.
         resids = (spectrum.ravel() - spec_predict) / errs
         return resids
 
