@@ -12,6 +12,7 @@ from . import utils
 
 def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
                 NN_coeffs, wavelength_payne,\
+                errors_payne=None,\
                 RV_array=np.linspace(-1,1.,6), order_choice=[20],\
                 polynomial_order=6, bounds_set=None):
 
@@ -42,6 +43,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     # we assume a quadratic polynomial for the residual continuum
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
+                                                          errors_payne=errors_payne,\
                                                           p0_initial=None, RV_prefit=True, blaze_normalized=True,\
                                                           RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
 
@@ -51,6 +53,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     RV_array = np.array([popt_best[-1]])
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
+                                                          errors_payne=errors_payne,\
                                                           p0_initial=None, RV_prefit=False, blaze_normalized=True,\
                                                           RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
 
@@ -64,6 +67,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     p0_initial = np.concatenate([popt_best[:4], poly_initial.ravel(), popt_best[-2:]])
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
+                                                          errors_payne=errors_payne,\
                                                           p0_initial=p0_initial, bounds_set=bounds_set,\
                                                           RV_prefit=False, blaze_normalized=False,\
                                                           RV_array=RV_array, polynomial_order=polynomial_order)
@@ -107,7 +111,9 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 #------------------------------------------------------------------------------------------
 
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
-                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None, bounds_set=None,\
+                 wavelength, NN_coeffs, wavelength_payne,\
+                 errors_payne=None,\
+                 p0_initial=None, bounds_set=None,\
                  RV_prefit=False, blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
                  polynomial_order=2, order_choice=[20]):
 
@@ -127,6 +133,10 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     Returns:
         Best fitted parameter (Teff, logg, Fe/H, Alpha/Fe, polynomial coefficients, vmacro, RV)
     '''
+
+    # assume no model error if not specified
+    if errors_payne is None:
+        errors_payne = np.zeros_like(wavelength_payne)
 
     # normalize wavelength grid
     wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
