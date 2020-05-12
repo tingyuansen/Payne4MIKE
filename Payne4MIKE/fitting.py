@@ -49,7 +49,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
                                                           wavelength, NN_coeffs, wavelength_payne,\
                                                           errors_payne=errors_payne,\
                                                           p0_initial=None, RV_prefit=True, blaze_normalized=True,\
-                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set,
+                                                          RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set,\
                                                           order_choice=order_choice)
 
     # we then fit for all the orders
