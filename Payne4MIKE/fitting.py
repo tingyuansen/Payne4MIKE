@@ -1,7 +1,7 @@
 # code for fitting spectra, using the models in spectral_model.py
 from __future__ import absolute_import, division, print_function # python2 compatibility
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, least_squares
 from scipy import interpolate
 from scipy import signal
 from scipy.stats import norm
@@ -12,8 +12,10 @@ from . import utils
 
 def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
                 NN_coeffs, wavelength_payne,\
+                errors_payne=None,\
                 RV_array=np.linspace(-1,1.,6), order_choice=[20],\
-                polynomial_order=6, bounds_set=None):
+                polynomial_order=6, bounds_set=None,
+                initial_stellar_parameters=None):
 
     '''
     Fitting MIKE spectrum
@@ -35,6 +37,9 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
 
     polynomial_order is the final order of polynomial that we will assume for the continuum of individual orders
     A 6th order polynomial does a decent job
+
+    initial_stellar_parameters: input initial values for 
+       Teff, logg, Fe/H, a/Fe (in physical units of K, dex, solar, solar)
     '''
 
     # first we fit for a specific order while looping over all RV initalization
@@ -42,6 +47,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     # we assume a quadratic polynomial for the residual continuum
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
+                                                          errors_payne=errors_payne,\
                                                           p0_initial=None, RV_prefit=True, blaze_normalized=True,\
                                                           RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set,\
                                                           order_choice=order_choice)
@@ -50,9 +56,25 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     # we adopt the RV from the previous fit as the sole initialization
     # the spectrum is still pre-normalized by the blaze function
     RV_array = np.array([popt_best[-1]])
+    # we adopt p0_initial from initial_stellar_parameters
+    if initial_stellar_parameters is not None:
+        normalized_stellar_parameters = utils.normalize_stellar_parameter_labels(
+            initial_stellar_parameters, NN_coeffs)
+        num_order = spectrum.shape[0]
+        coeff_poly = polynomial_order + 1
+        p0_initial = np.zeros(4 + coeff_poly*num_order + 1 + 1)
+        p0_initial[:4] = normalized_stellar_parameters
+        p0_initial[4::coeff_poly] = 1
+        p0_initial[5::coeff_poly] = 0
+        p0_initial[6::coeff_poly] = 0
+        p0_initial[-2] = 0.5
+        p0_initial[-1] = np.array([popt_best[-1]])
+    else:
+        p0_initial = None
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
-                                                          p0_initial=None, RV_prefit=False, blaze_normalized=True,\
+                                                          errors_payne=errors_payne,\
+                                                          p0_initial=p0_initial, RV_prefit=False, blaze_normalized=True,\
                                                           RV_array=RV_array, polynomial_order=2, bounds_set=bounds_set)
 
     # using this fit, we can subtract the raw spectrum with the best fit model of the normalized spectrum
@@ -65,6 +87,7 @@ def fit_global(spectrum, spectrum_err, spectrum_blaze, wavelength,
     p0_initial = np.concatenate([popt_best[:4], poly_initial.ravel(), popt_best[-2:]])
     popt_best, model_spec_best, chi_square = fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
                                                           wavelength, NN_coeffs, wavelength_payne,\
+                                                          errors_payne=errors_payne,\
                                                           p0_initial=p0_initial, bounds_set=bounds_set,\
                                                           RV_prefit=False, blaze_normalized=False,\
                                                           RV_array=RV_array, polynomial_order=polynomial_order)
@@ -107,8 +130,47 @@ def fit_continuum(spectrum, spectrum_err, wavelength, previous_poly_fit, previou
 
 #------------------------------------------------------------------------------------------
 
+def evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne, coeff_poly, wavelength, num_order, num_pixel,
+                   wavelength_normalized=None):
+
+    # get wavelength_normalized
+    if wavelength_normalized is None:
+        wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
+
+    # make payne models
+    full_spec = spectral_model.get_spectrum_from_neural_net(\
+                                scaled_labels = labels[:4],
+                                NN_coeffs = NN_coeffs)
+    # broadening kernel
+    win = norm.pdf((np.arange(21)-10.)*(wavelength_payne[1]-wavelength_payne[0]),\
+                            scale=labels[-2]/3e5*5000)
+    win = win/np.sum(win)
+
+    # vbroad -> RV
+    full_spec = signal.convolve(full_spec, win, mode='same')
+    full_spec = utils.doppler_shift(wavelength_payne, full_spec, labels[-1]*100.)
+    errors_spec = utils.doppler_shift(wavelength_payne, errors_payne, labels[-1]*100.)
+    
+    # interpolate into the observed wavelength
+    f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
+    f_errs_spec = interpolate.interp1d(wavelength_payne, errors_spec)
+
+    # loop over all orders
+    spec_predict = np.zeros(num_order*num_pixel)
+    errs_predict = np.zeros(num_order*num_pixel)
+    for k in range(num_order):
+        scale_poly = 0
+        for m in range(coeff_poly):
+            scale_poly += (wavelength_normalized[k,:]**m)*labels[4+coeff_poly*k+m]
+        spec_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_flux_spec(wavelength[k,:])
+        errs_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_errs_spec(wavelength[k,:])
+
+    return spec_predict, errs_predict
+
 def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
-                 wavelength, NN_coeffs, wavelength_payne, p0_initial=None, bounds_set=None,\
+                 wavelength, NN_coeffs, wavelength_payne,\
+                 errors_payne=None,\
+                 p0_initial=None, bounds_set=None,\
                  RV_prefit=False, blaze_normalized=False, RV_array=np.linspace(-1,1.,6),\
                  polynomial_order=2, order_choice=[20]):
 
@@ -128,6 +190,10 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
     Returns:
         Best fitted parameter (Teff, logg, Fe/H, Alpha/Fe, polynomial coefficients, vmacro, RV)
     '''
+
+    # assume no model error if not specified
+    if errors_payne is None:
+        errors_payne = np.zeros_like(wavelength_payne)
 
     # normalize wavelength grid
     wavelength_normalized = utils.whitten_wavelength(wavelength)*100.
@@ -154,33 +220,18 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
 #------------------------------------------------------------------------------------------
     # the objective function
-    def fit_func(dummy_variable, *labels):
+    def fit_func(labels):
 
-        # make payne models
-        full_spec = spectral_model.get_spectrum_from_neural_net(\
-                                    scaled_labels = labels[:4],
-                                    NN_coeffs = NN_coeffs)
+        spec_predict, errs_predict = evaluate_model(labels, NN_coeffs, wavelength_payne, errors_payne,
+                                                    coeff_poly, wavelength, num_order, num_pixel,
+                                                    wavelength_normalized)
 
-        # broadening kernel
-        win = norm.pdf((np.arange(21)-10.)*(wavelength_payne[1]-wavelength_payne[0]),\
-                                scale=labels[-2]/3e5*5000)
-        win = win/np.sum(win)
-
-        # vbroad -> RV
-        full_spec = signal.convolve(full_spec, win, mode='same')
-        full_spec = utils.doppler_shift(wavelength_payne, full_spec, labels[-1]*100.)
-
-        # interpolate into the observed wavelength
-        f_flux_spec = interpolate.interp1d(wavelength_payne, full_spec)
-
-        # loop over all orders
-        spec_predict = np.zeros(num_order*num_pixel)
-        for k in range(spectrum.shape[0]):
-            scale_poly = 0
-            for m in range(coeff_poly):
-                scale_poly += (wavelength_normalized[k,:]**m)*labels[4+coeff_poly*k+m]
-            spec_predict[k*num_pixel:(k+1)*num_pixel] = scale_poly*f_flux_spec(wavelength[k,:])
-        return spec_predict
+        # Calculate resids: set all potentially bad errors to 999.
+        # We take errs > 300 as bad to account for interpolation issues on the mask
+        errs = np.sqrt(errs_predict**2 + spectrum_err.ravel()**2)
+        errs[(~np.isfinite(errs)) | (errs > 300) | (errs < 0)] = 999.
+        resids = (spectrum.ravel() - spec_predict) / errs
+        return resids
 
 #------------------------------------------------------------------------------------------
     # loop over all possible
@@ -194,6 +245,9 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
     if not(RV_prefit) and not(blaze_normalized):
         print('Final Fit: Fitting the whole spectrum with all parameters simultaneously')
+        popt_for_printing = utils.transform_coefficients(p0_initial)
+        print('p0 = Teff={:.0f} logg={:.2f} FeH={:.2f} aFe={:.2f} vbroad={:.2f} rv={:.1f}'.format(
+            *[popt_for_printing[i] for i in [0,1,2,3,-2,-1]]))
 
     for i in range(RV_array.size):
         print(i+1, "/", RV_array.size)
@@ -218,8 +272,8 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
             bounds[1,:4] = 0.5
             bounds[0,-2] = 0.1 # vbroad
             bounds[1,-2] = 10.
-            bounds[0,-1] = -2. # RV [100 km/s]
-            bounds[1,-1] = 2.
+            bounds[0,-1] = -5. # RV [100 km/s]
+            bounds[1,-1] = 5.
         else:
             bounds[:,:4] = bounds_set[:,:4]
             bounds[:,-2:] = bounds_set[:,-2:]
@@ -229,14 +283,21 @@ def fitting_mike(spectrum, spectrum_err, spectrum_blaze,\
 
         # run the optimizer
         tol = 5e-4
-        popt, pcov = curve_fit(fit_func, xdata=[],\
-                               ydata = spectrum.ravel(), sigma = spectrum_err.ravel(),\
-                               p0 = p0, bounds=bounds, ftol = tol, xtol = tol, absolute_sigma = True,\
-                               method = 'trf')
+        #popt, pcov = curve_fit(fit_func, xdata=[],\
+        #                       ydata = spectrum.ravel(), sigma = spectrum_err.ravel(),\
+        #                       p0 = p0, bounds=bounds, ftol = tol, xtol = tol, absolute_sigma = True,\
+        #                       method = 'trf')
+        res = least_squares(fit_func, p0,
+                            bounds=bounds, ftol=tol, xtol=tol, method='trf')
+        if not res.success:
+            raise RuntimeError("Optimal parameters not found: " + res.message)
+        popt = res.x
 
         # calculate chi^2
-        model_spec = fit_func([], *popt)
-        chi_2_temp = np.mean((spectrum.ravel() - model_spec)**2/spectrum_err.ravel()**2)
+        model_spec, model_errs = evaluate_model(popt, NN_coeffs, wavelength_payne, errors_payne,
+                                                coeff_poly, wavelength, num_order, num_pixel,
+                                                wavelength_normalized)
+        chi_2_temp = np.mean((spectrum.ravel() - model_spec)**2/(model_errs + spectrum_err.ravel()**2))
 
         # check if this gives a better fit
         if chi_2_temp < chi_2:

@@ -1,0 +1,14 @@
+# Balmer line cores: poorly modeled
+6560 6566
+4858 4864
+4337 4343
+4099 4105
+3967 3973
+3886 3892
+3832 3838
+# Na D: often ISM absorption
+5887 5903
+5893 5899
+# Ca HK: often ISM absorption
+3931 3937
+3966 3972

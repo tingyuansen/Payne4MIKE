@@ -4,9 +4,19 @@ import numpy as np
 import os
 from scipy import interpolate
 from .read_spectrum import read_carpy_fits
+from . import spectral_model
 
 
 #=======================================================================================================================
+
+def vac2air(lamvac):
+    """
+    http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
+    Morton 2000
+    """
+    s2 = (1e4/lamvac)**2
+    n = 1 + 0.0000834254 + 0.02406147 / (130 - s2) + 0.00015998 / (38.9 - s2)
+    return lamvac/n
 
 def read_in_neural_network():
 
@@ -25,10 +35,19 @@ def read_in_neural_network():
     x_min = tmp["x_min"]
     x_max = tmp["x_max"]
     wavelength_payne = tmp["wavelength_payne"]
+    wavelength_payne = vac2air(wavelength_payne)
     NN_coeffs = (w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max)
     tmp.close()
     return NN_coeffs, wavelength_payne
 
+def read_default_model_mask():
+    NN_coeffs, wavelength_payne = read_in_neural_network()
+    errors_payne = np.zeros_like(wavelength_payne)
+    theory_mask = np.loadtxt(os.path.join(os.path.dirname(os.path.realpath(__file__)),'other_data/theory_mask.txt'))
+    for wmin, wmax in theory_mask:
+        assert wmin < wmax, (wmin, wmax)
+        errors_payne[(wavelength_payne >= wmin) & (wavelength_payne <= wmax)] = 999.
+    return errors_payne
 
 #--------------------------------------------------------------------------------------------------------------------------
 
@@ -112,6 +131,32 @@ def mask_telluric_region(spectrum_err, spectrum_blaze,
 
 #------------------------------------------------------------------------------------------
 
+def cut_wavelength(wavelength, spectrum, spectrum_err, wavelength_min = 3500, wavelength_max = 10000):
+
+    '''
+    remove orders not in wavelength range
+    '''
+
+    ii_good = np.sum((wavelength > wavelength_min) & (wavelength < wavelength_max), axis=1) == wavelength.shape[1]
+    print("Keeping {}/{} orders between {}-{}".format(ii_good.sum(), len(ii_good), wavelength_min, wavelength_max))
+    return wavelength[ii_good,:], spectrum[ii_good,:], spectrum_err[ii_good,:]
+
+#------------------------------------------------------------------------------------------
+
+def mask_wavelength_regions(wavelength, spectrum_err, mask_list):
+
+    '''
+    mask out a mask_list by setting infinite errors
+    '''
+
+    assert wavelength.shape == spectrum_err.shape
+    for wmin, wmax in mask_list:
+        assert wmin < wmax
+        spectrum_err[(wavelength > wmin) & (wavelength < wmax)] = 999.
+    return spectrum_err
+
+#------------------------------------------------------------------------------------------
+
 def scale_spectrum_by_median(spectrum, spectrum_err):
 
     '''
@@ -137,3 +182,40 @@ def whitten_wavelength(wavelength):
         mean_wave = np.mean(wavelength[k,:])
         wavelength_normalized[k,:] = (wavelength[k,:]-mean_wave)/mean_wave
     return wavelength_normalized
+
+#---------------------------------------------------------------------
+
+def transform_coefficients(popt, NN_coeffs=None):
+
+    '''
+    Transform coefficients into human-readable
+    '''
+
+    if NN_coeffs is None:
+        NN_coeffs, dummy = read_in_neural_network()
+    w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max = NN_coeffs
+    
+    popt_new = popt.copy()
+    popt_new[:4] = (popt_new[:4] + 0.5)*(x_max-x_min) + x_min
+    popt_new[0] = popt_new[0]*1000.
+    popt_new[-1] = popt_new[-1]*100.
+    return popt_new
+
+def normalize_stellar_parameter_labels(labels, NN_coeffs=None):
+    '''
+    Turn physical stellar parameter values into normalized values.
+    Teff (K), logg (dex), FeH (solar), aFe (solar)
+    '''
+    assert len(labels)==4, "Input Teff, logg, FeH, aFe"
+    # Teff, logg, FeH, aFe = labels
+    labels = np.ravel(labels)
+    labels[0] = labels[0]/1000.
+
+    if NN_coeffs is None:
+        NN_coeffs, dummy = read_in_neural_network()
+    w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max = NN_coeffs
+    new_labels = (labels - x_min) / (x_max - x_min) - 0.5
+    assert np.all(new_labels >= -0.5), new_labels
+    assert np.all(new_labels <=  0.5), new_labels
+    return new_labels
+
